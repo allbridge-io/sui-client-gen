@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -246,6 +247,9 @@ fn write_tokens_to_file(tokens: &Tokens<JavaScript>, path: &Path) -> Result<()> 
 
     let file = std::fs::File::create(path)?;
     let mut w = fmt::IoWriter::new(file);
+    if path.extension().unwrap() == "ts" {
+        w.write_str("// @ts-nocheck\n")?;
+    }
     let fmt = fmt::Config::from_lang::<JavaScript>();
     let config = js::Config::default();
     tokens.format_file(&mut w.as_formatter(&fmt), &config)?;
@@ -259,6 +263,9 @@ fn write_str_to_file(s: &str, path: &Path) -> Result<()> {
 
     let file = std::fs::File::create(path)?;
     let mut w = fmt::IoWriter::new(file);
+    if path.extension().unwrap() == "ts" {
+        w.write_str("// @ts-nocheck\n")?;
+    }
     std::fmt::Write::write_str(&mut w, s)?;
     Ok(())
 }
@@ -351,13 +358,55 @@ fn gen_packages_for_model(
         // generate index.ts
         let published_at = published_at_map.get(pkg_id).unwrap_or(pkg_id);
         let versions = version_table.get(pkg_id).unwrap();
-        let tokens: js::Tokens = quote!(
-            export const PACKAGE_ID = $[str]($[const](pkg_id.to_hex_literal()));
-            export const PUBLISHED_AT = $[str]($[const](published_at.to_hex_literal()));
-            $(for (published_at, version) in versions {
-                export const PKG_V$(version.value()) = $[str]($[const](published_at.to_hex_literal()));
-            })
-        );
+        let tokens: js::Tokens = if is_top_level && *pkg_id != AccountAddress::TWO {
+            quote!(
+                class PackageAddress {
+                  private static $$PACKAGE_ID = $[str]();
+                  private static $$PUBLISHED_AT = $[str]();
+                  private static $$PKG_V = [];
+
+                  get PACKAGE_ID() {
+                    return PackageAddress.$$PACKAGE_ID;
+                  }
+
+                  get PUBLISHED_AT() {
+                    return PackageAddress.$$PUBLISHED_AT;
+                  }
+
+                  get PKG_V1() {
+                    return PackageAddress.$$PKG_V[1];
+                  }
+
+                  setPackageId(address: string): void {
+                    PackageAddress.$$PACKAGE_ID = address;
+                  }
+
+                  setPublishedAt(address: string): void {
+                    PackageAddress.$$PUBLISHED_AT = address;
+                  }
+
+                  setPkgV(v: number, address: string): void {
+                    PackageAddress.$$PKG_V[v] = address;
+                  }
+
+                  setAddress(address: string) {
+                    PackageAddress.$$PACKAGE_ID = address;
+                    PackageAddress.$$PUBLISHED_AT = address;
+                    PackageAddress.$$PKG_V[1] = address;
+                  }
+                }
+                const packageAddress = new PackageAddress();
+                export = packageAddress;
+            )
+        } else {
+            quote!(
+                export const PACKAGE_ID = $[str]($[const](pkg_id.to_hex_literal()));
+                export const PUBLISHED_AT = $[str]($[const](published_at.to_hex_literal()));
+                $(for (published_at, version) in versions {
+                    export const PKG_V$(version.value()) = $[str]($[const](published_at.to_hex_literal()));
+                })
+            )
+        };
         write_tokens_to_file(&tokens, &package_path.join("index.ts"))?;
 
         // generate init.ts

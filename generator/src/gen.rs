@@ -1775,7 +1775,9 @@ impl<'env, 'a> StructsGen<'env, 'a> {
             export class $(&struct_name)$(self.gen_params_toks(strct, type_params_str.clone(), &extends_type_argument, &extends_phantom_type_argument)) implements $struct_class {
                 __StructClass = true as const;$['\n']
 
-                static readonly $$typeName = $(self.gen_full_name_with_address(strct, true, false));
+                static get $$typeName() {
+                    return $(self.gen_full_name_with_address(strct, true, false));
+                }
                 static readonly $$numTypeParams = $(type_params.len());
                 static readonly $$isPhantom = $is_phantom_value_toks as const;$['\n']
 
@@ -1786,7 +1788,7 @@ impl<'env, 'a> StructsGen<'env, 'a> {
                 })
 
                 readonly $$typeName = $(&struct_name).$$typeName;
-                readonly $$fullTypeName: $static_full_type_name_as_toks;
+                readonly $$fullTypeName: string;
                 readonly $$typeArgs: $type_args_field_type;
                 readonly $$isPhantom = $(&struct_name).$$isPhantom;$['\n']
 
@@ -1805,7 +1807,7 @@ impl<'env, 'a> StructsGen<'env, 'a> {
                     this.$$fullTypeName = $compose_sui_type(
                             $(&struct_name).$$typeName,
                             ...typeArgs
-                    ) as $static_full_type_name_as_toks;
+                    ) as string;
                     this.$$typeArgs = typeArgs;$['\n']
 
                     $(match fields.len() {
@@ -1829,7 +1831,7 @@ impl<'env, 'a> StructsGen<'env, 'a> {
                         fullTypeName: $compose_sui_type(
                             $(&struct_name).$$typeName,
                             ...[$(for param in &type_params_str join (, ) => $extract_type($param))]
-                        ) as $reified_full_type_name_as_toks,
+                        ) as string,
                         typeArgs: [
                             $(for param in &type_params_str join (, ) => $extract_type($param))
                         ] as $reified_type_args_as_toks,
