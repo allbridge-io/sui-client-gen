@@ -389,10 +389,10 @@ fn gen_packages_for_model(
                     PackageAddress.$$PKG_V[v] = address;
                   }
 
-                  setAddress(address: string) {
+                  setAddress(address: string, pkgV1?: string) {
                     PackageAddress.$$PACKAGE_ID = address;
                     PackageAddress.$$PUBLISHED_AT = address;
-                    PackageAddress.$$PKG_V[1] = address;
+                    PackageAddress.$$PKG_V[1] = pkgV1 || address;
                   }
                 }
                 const packageAddress = new PackageAddress();
